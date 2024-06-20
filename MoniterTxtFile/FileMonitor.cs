@@ -1,36 +1,82 @@
 ﻿using System.Timers;
 
-public static class FileMonitor
+public class FileMonitor
 {
-    private static string targetFilePath=string.Empty;
-    private static string previousContent=string.Empty;
-    private static FileSystemWatcher watcher=default!;
-    private static System.Timers.Timer timer=default!;
+    private static string targetFilePath = string.Empty;
+    private static string previousContent = string.Empty;
+    private static FileSystemWatcher watcher = default!;
+    private static System.Timers.Timer timer = default!;
 
     public static void InitializeFileMonitor()
     {
         Console.WriteLine("File Change Monitor");
         Console.WriteLine("-------------------");
-        Console.Write("Enter the full path of the target text file : ");
-        targetFilePath = Console.ReadLine()!;
 
-        // Check if the specified file exists
-        if (!File.Exists(targetFilePath))
+        bool isValidFile = false;
+
+        while (!isValidFile)
         {
-            Console.WriteLine($"The file '{targetFilePath}' does not exist. Creating a new file.");
-            try
+            Console.Write("Enter the full path of the target text file (.txt only, default D: drive) :  ");
+            string userInput = Console.ReadLine()!.Trim();
+
+            if (string.IsNullOrEmpty(Path.GetPathRoot(userInput)))
             {
-                File.WriteAllText(targetFilePath, ""); // Create an empty file
+                targetFilePath = Path.Combine("D:\\", userInput); 
             }
-            catch (Exception ex)
+            else
             {
-                Console.WriteLine($"Error creating file: {ex.Message}");
-                return;
+                targetFilePath = userInput;
+            }
+
+            if (!File.Exists(targetFilePath))
+            {
+                try
+                {
+                    // create an empty file
+                    File.WriteAllText(targetFilePath, "");
+                    if (Path.GetExtension(targetFilePath).ToLower() != ".txt")
+                    {
+                        isValidFile = false;
+                    }
+                    else
+                    {
+                        isValidFile = true;
+                        Console.WriteLine($"Created new file: '{targetFilePath}'");
+                    }
+                        
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"Error creating file '{targetFilePath}': {ex.Message}");
+                }
+            }
+            else
+            {
+                if (Path.GetExtension(targetFilePath).ToLower() == ".txt")
+                {
+                    isValidFile = true; 
+                }
+                else
+                {
+                    Console.WriteLine($"Error: The file '{targetFilePath}' is not a .txt file.");
+                }
+            }
+            if (!isValidFile)
+            {
+                Console.WriteLine("Please enter a valid .txt file path.");
             }
         }
 
         // Initialize previous content of the file
-        previousContent = File.ReadAllText(targetFilePath);
+        try
+        {
+            previousContent = File.ReadAllText(targetFilePath);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error reading file '{targetFilePath}': {ex.Message}");
+            return;
+        }
 
         // File watcher setup
         watcher = new FileSystemWatcher();
@@ -39,43 +85,49 @@ public static class FileMonitor
         watcher.NotifyFilter = NotifyFilters.LastWrite;
         watcher.Changed += OnFileChanged;
         watcher.EnableRaisingEvents = true;
-        Console.WriteLine("File name : " + Path.GetFileName(targetFilePath));
-        
+
         // Timer setup to check every 15 seconds
-        timer = new System.Timers.Timer(5); // 15 seconds in milliseconds
+        timer = new System.Timers.Timer(15000); // 15 seconds in milliseconds
         timer.Elapsed += OnTimerElapsed!;
         timer.AutoReset = true;
         timer.Enabled = true;
 
         Console.WriteLine($"Monitoring changes in '{targetFilePath}'. Press Enter to exit.");
         Console.ReadLine();
+
+        // Clean up
         watcher.Dispose();
         timer.Dispose();
     }
 
     #region Private methods
-    //To catch on change event
     private static void OnFileChanged(object sender, FileSystemEventArgs e)
     {
-        string currentContent = File.ReadAllText(targetFilePath);
+        string currentContent;
+        try
+        {
+            currentContent = File.ReadAllText(targetFilePath);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error reading file '{targetFilePath}': {ex.Message}");
+            return;
+        }
+
         if (currentContent != previousContent)
         {
-            Console.WriteLine($"\nFile '{targetFilePath}' Has Changed");
-            Console.WriteLine("\nPrevious Contents : ");
-            Console.WriteLine($"{previousContent}\n\n");
-            Console.WriteLine("New Contents :");
-            Console.WriteLine($"{currentContent}\n");
-            Console.WriteLine("---------------------------------------");
-
-            // Update previous content to current content
+            Console.WriteLine($"File '{targetFilePath}' is changed:");
+            Console.WriteLine($"\nPrevious content: {previousContent}");
+            Console.WriteLine($"\nCurrent content: {currentContent}");
+            Console.WriteLine("\n---------------------------------------");
             previousContent = currentContent;
         }
     }
 
-    // This method is used to keep the application running
     private static void OnTimerElapsed(object sender, ElapsedEventArgs e)
     {
-        
+        // This method is used to keep the application running
     }
     #endregion
 }
+
